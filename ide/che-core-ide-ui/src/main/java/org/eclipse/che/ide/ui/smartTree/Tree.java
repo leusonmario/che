@@ -1065,7 +1065,7 @@ public class Tree extends FocusWidget implements HasBeforeExpandNodeHandlers,
         updateTask.delay(view.getScrollDelay());
     }
 
-    protected Element getContainer(Node node) {
+    public Element getContainer(Node node) {
         if (node == null) {
             return rootContainer;
         }

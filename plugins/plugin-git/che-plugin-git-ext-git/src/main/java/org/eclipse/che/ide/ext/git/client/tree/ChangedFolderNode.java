@@ -28,6 +28,7 @@ import java.util.List;
  */
 public class ChangedFolderNode extends AbstractTreeNode implements HasPresentation {
 
+    private String           path;
     private String           name;
     private NodePresentation nodePresentation;
 
@@ -41,7 +42,7 @@ public class ChangedFolderNode extends AbstractTreeNode implements HasPresentati
      * @param nodesResources
      *         resources that contain icons
      */
-    public ChangedFolderNode(String name, NodesResources nodesResources) {
+    ChangedFolderNode(String name, NodesResources nodesResources) {
         this.name = name;
         this.nodesResources = nodesResources;
     }
@@ -70,7 +71,7 @@ public class ChangedFolderNode extends AbstractTreeNode implements HasPresentati
     @Override
     public NodePresentation getPresentation(boolean update) {
         if (nodePresentation == null) {
-            nodePresentation = new ChangedNodePresentation();
+            nodePresentation = new NodePresentation();
             updatePresentation(nodePresentation);
         }
 
@@ -80,15 +81,11 @@ public class ChangedFolderNode extends AbstractTreeNode implements HasPresentati
         return nodePresentation;
     }
 
-    static class ChangedNodePresentation extends NodePresentation {
-        private boolean isSelected;
+    public String getPath() {
+        return path;
+    }
 
-        public boolean isSelected() {
-            return isSelected;
-        }
-
-        public void setSelected(boolean selected) {
-            isSelected = selected;
-        }
+    public void setPath(String path) {
+        this.path = path;
     }
 }

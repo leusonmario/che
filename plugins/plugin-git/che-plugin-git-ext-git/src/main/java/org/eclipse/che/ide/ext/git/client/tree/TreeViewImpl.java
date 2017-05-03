@@ -15,7 +15,6 @@ import com.google.gwt.dom.client.Element;
 import com.google.gwt.dom.client.InputElement;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
-import com.google.gwt.event.shared.GwtEvent;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.Event;
@@ -31,9 +30,7 @@ import org.eclipse.che.ide.FontAwesome;
 import org.eclipse.che.ide.api.data.tree.Node;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.GitResources;
-import org.eclipse.che.ide.ext.git.client.compare.FileStatus;
 import org.eclipse.che.ide.ext.git.client.compare.FileStatus.Status;
-import org.eclipse.che.ide.ext.git.client.tree.ChangedFolderNode.ChangedNodePresentation;
 import org.eclipse.che.ide.project.shared.NodesResources;
 import org.eclipse.che.ide.resource.Path;
 import org.eclipse.che.ide.ui.smartTree.NodeLoader;
@@ -42,12 +39,8 @@ import org.eclipse.che.ide.ui.smartTree.SelectionModel;
 import org.eclipse.che.ide.ui.smartTree.Tree;
 import org.eclipse.che.ide.ui.smartTree.TreeStyles;
 import org.eclipse.che.ide.ui.smartTree.compare.NameComparator;
-import org.eclipse.che.ide.ui.smartTree.event.ExpandNodeEvent;
-import org.eclipse.che.ide.ui.smartTree.event.ExpandNodeEvent.ExpandNodeHandler;
 import org.eclipse.che.ide.ui.smartTree.event.SelectionChangedEvent;
 import org.eclipse.che.ide.ui.smartTree.presentation.DefaultPresentationRenderer;
-import org.eclipse.che.ide.ui.smartTree.presentation.HasPresentation;
-import org.eclipse.che.ide.ui.smartTree.presentation.NodePresentation;
 
 import javax.validation.constraints.NotNull;
 import java.util.ArrayList;
@@ -86,12 +79,12 @@ public class TreeViewImpl extends Composite implements TreeView {
     @UiField(provided = true)
     final GitResources            res;
 
-    private ActionDelegate      delegate;
-    private Tree                tree;
-    private Map<String, Status> items;
+    private ActionDelegate delegate;
+    private Tree           tree;
 
-    private final Set<String>    unselected;
-    private final Set<String>    unselectedFolders;
+    private Set<String>  unselectedPaths;
+    private List<String> allPaths;
+
     private final NodesResources nodesResources;
 
     @Inject
@@ -101,8 +94,8 @@ public class TreeViewImpl extends Composite implements TreeView {
         this.res = resources;
         this.locale = locale;
         this.nodesResources = nodesResources;
-        this.unselected = new HashSet<>();
-        this.unselectedFolders = new HashSet<>();
+        this.unselectedPaths = new HashSet<String>();
+        this.allPaths = new ArrayList<>();
 
         initWidget(uiBinder.createAndBindUi(this));
 
@@ -123,32 +116,6 @@ public class TreeViewImpl extends Composite implements TreeView {
         tree.setPresentationRenderer(new ChangedListRender(tree.getTreeStyles()));
         changedFilesPanel.add(tree);
 
-        tree.addExpandHandler(new ExpandNodeHandler() {
-            @Override
-            public void onExpand(ExpandNodeEvent event) {
-
-
-
-                Node node = event.getNode();
-
-                final NodePresentation parentpresentation = ((HasPresentation)node).getPresentation(false);
-                boolean selected = ((ChangedNodePresentation)parentpresentation).isSelected();
-
-
-                List<Node> childNodes = tree.getAllChildNodes(singletonList(node), false);
-
-                for (Node node1 : childNodes) {
-                    ChangedNodePresentation nodePr = (ChangedNodePresentation)((HasPresentation)node).getPresentation(false);
-                    nodePr.setSelected(!selected);
-                    Element firstChildElement = tree.renderNode(node1, 2).getFirstChildElement();
-                    Element span = firstChildElement.getElementsByTagName("span").getItem(0);
-                    Element input = span.getElementsByTagName("input").getItem(0);
-                    ((InputElement)input).setChecked(selected);
-                    tree.refresh(node);
-                }
-            }
-        });
-
         createButtons();
     }
 
@@ -161,41 +128,27 @@ public class TreeViewImpl extends Composite implements TreeView {
         public Element render(final Node node, final String domID, final Tree.Joint joint, final int depth) {
             Element rootContainer = super.render(node, domID, joint, depth);
             Element nodeContainer = rootContainer.getFirstChildElement();
-
-            final NodePresentation presentation = ((HasPresentation)node).getPresentation(false);
             final Element checkBoxElement = new CheckBox().getElement();
-            InputElement input = (InputElement)checkBoxElement.getElementsByTagName("input").getItem(0);
-            input.setChecked(((ChangedNodePresentation)presentation).isSelected());
+            final InputElement checkBoxInputElement = (InputElement)checkBoxElement.getElementsByTagName("input").getItem(0);
+            final String nodePath = node instanceof ChangedFolderNode ? ((ChangedFolderNode)node).getPath() : node.getName();
+            checkBoxInputElement.setChecked(!unselectedPaths.contains(nodePath));
             Event.sinkEvents(checkBoxElement, Event.ONCLICK);
             Event.setEventListener(checkBoxElement, new EventListener() {
                 @Override
                 public void onBrowserEvent(Event event) {
                     if (Event.ONCLICK == event.getTypeInt() && event.getTarget().getTagName().equalsIgnoreCase("label")) {
-                        ChangedNodePresentation pr = (ChangedNodePresentation)presentation;
-                        boolean selected = pr.isSelected();
-                        pr.setSelected(!selected);
-                        List<Node> childNodes = tree.getAllChildNodes(singletonList(node), false);
+                        for (String path : allPaths) {
+                            if (!path.startsWith(nodePath)) {
+                                continue;
+                            }
+                            if (checkBoxInputElement.isChecked()) {
+                                unselectedPaths.add(path);
+                            } else {
+                                unselectedPaths.remove(path);
+                            }
+                        }
 
-//                        String name = node.getName();
-//                        if (node instanceof ChangedFolderNode) {
-//                            for (String item : items.keySet()) {
-//                                if (item.contains(name + "/")) {
-//                                    unselected.add(item);
-//                                }
-//                            }
-//                        } else if (unselected.contains(name)) {
-//                            unselected.remove(name);
-//                        } else {
-//                            unselected.add(name);
-//                        }
-
-                        for (Node node : childNodes) {
-                            ChangedNodePresentation nodePr = (ChangedNodePresentation)((HasPresentation)node).getPresentation(false);
-                            nodePr.setSelected(!selected);
-                            Element firstChildElement = render(node, domID, joint, depth).getFirstChildElement();
-                            Element span = firstChildElement.getElementsByTagName("span").getItem(0);
-                            Element input = span.getElementsByTagName("input").getItem(0);
-                            ((InputElement)input).setChecked(pr.isSelected());
+                        for (Node node : tree.getAllChildNodes(singletonList(node), false)) {
                             tree.refresh(node);
                         }
                     }
@@ -222,7 +175,6 @@ public class TreeViewImpl extends Composite implements TreeView {
 
     @Override
     public void viewChangedFilesAsTree(@NotNull Map<String, Status> items) {
-        this.items = items;
         tree.getNodeStorage().clear();
         List<Node> nodes = getGroupedNodes(items);
         if (nodes.size() == 1) {
@@ -285,24 +237,27 @@ public class TreeViewImpl extends Composite implements TreeView {
 
     private List<Node> getGroupedNodes(Map<String, Status> items) {
         List<String> allFiles = new ArrayList<>(items.keySet());
-        List<String> allPaths = new ArrayList<>();
+        List<String> allFolders = new ArrayList<>();
         for (String file : allFiles) {
             String path = file.substring(0, file.lastIndexOf("/"));
-            if (!allPaths.contains(path)) {
-                allPaths.add(path);
+            if (!allFolders.contains(path)) {
+                allFolders.add(path);
             }
         }
-        List<String> commonPaths = getCommonPaths(allPaths);
+        List<String> commonPaths = getCommonPaths(allFolders);
         for (String commonPath : commonPaths) {
-            if (!allPaths.contains(commonPath)) {
-                allPaths.add(commonPath);
+            if (!allFolders.contains(commonPath)) {
+                allFolders.add(commonPath);
             }
         }
+
+        allPaths.addAll(allFiles);
+        allPaths.addAll(allFolders);
 
         Map<String, Node> preparedNodes = new HashMap<>();
         for (int i = getMaxNestedLevel(allFiles); i > 0; i--) {
 
-            //Collect child files of all folders of current nesting level
+            //Collect child files of allPaths folders of current nesting level
             Map<String, List<Node>> currentChildNodes = new HashMap<>();
             for (String file : allFiles) {
                 Path pathName = Path.valueOf(file);
@@ -321,18 +276,19 @@ public class TreeViewImpl extends Composite implements TreeView {
             }
 
             //Map child files to related folders of current nesting level or just create a common folder
-            for (String path : allPaths) {
+            for (String path : allFolders) {
                 if (!(Path.valueOf(path).segmentCount() == i - 1)) {
                     continue;
                 }
-                Node folder = new ChangedFolderNode(getTransitFolderName(allPaths, path), nodesResources);
+                Node folder = new ChangedFolderNode(getTransitFolderName(allFolders, path), nodesResources);
+                ((ChangedFolderNode)folder).setPath(path);
                 if (currentChildNodes.keySet().contains(path)) {
                     folder.setChildren(currentChildNodes.get(path));
                 }
                 preparedNodes.put(path, folder);
             }
 
-            //Take all child folders and nest them to related parent folders of current nesting level
+            //Take allPaths child folders and nest them to related parent folders of current nesting level
             List<String> currentPaths = new ArrayList<>(preparedNodes.keySet());
             for (String parentPath : currentPaths) {
                 List<Node> nodesToNest = new ArrayList<>();

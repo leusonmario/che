@@ -96,7 +96,6 @@ public class ChangedFileNode extends AbstractTreeNode implements HasPresentation
         String name = Path.valueOf(pathName).lastSegment();
         presentation.setPresentableText(viewPath ? name : pathName);
         presentation.setPresentableIcon(nodesResources.file());
-//        ((ChangedFolderNode.ChangedNodePresentation)presentation).setSelected(isSelected);
 
         switch (status) {
             case MODIFIED:
@@ -116,7 +115,7 @@ public class ChangedFileNode extends AbstractTreeNode implements HasPresentation
     @Override
     public NodePresentation getPresentation(boolean update) {
         if (nodePresentation == null) {
-            nodePresentation = new ChangedFolderNode.ChangedNodePresentation();
+            nodePresentation = new NodePresentation();
             updatePresentation(nodePresentation);
         }
         if (update) {
