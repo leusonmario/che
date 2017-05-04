@@ -220,6 +220,18 @@ public class UserManager {
         return userDao.getAll(maxItems, skipCount);
     }
 
+    public Page<? extends User> findByEmailKey(String emailKey, int maxItems, long skipCount) throws ServerException {
+        checkArgument(maxItems >= 0, "The number of items to return can't be negative.");
+        checkArgument(skipCount >= 0, "The number of items to skip can't be negative.");
+        return userDao.findByEmail(emailKey, maxItems, skipCount);
+    }
+
+    public Page<? extends User> findByNameKey(String nameKey, int maxItems, long skipCount) throws ServerException {
+        checkArgument(maxItems >= 0, "The number of items to return can't be negative.");
+        checkArgument(skipCount >= 0, "The number of items to skip can't be negative.");
+        return userDao.findByName(nameKey, maxItems, skipCount);
+    }
+
     /**
      * Gets total count of all users
      *

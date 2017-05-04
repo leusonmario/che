@@ -195,6 +195,50 @@ public class JpaUserDao implements UserDao {
 
     @Override
     @Transactional
+    public Page<UserImpl> findByEmail(String emailKey, int maxItems, long skipCount) throws ServerException {
+        checkArgument(maxItems >= 0, "The number of items to return can't be negative.");
+        checkArgument(skipCount >= 0 && skipCount <= Integer.MAX_VALUE,
+                      "The number of items to skip can't be negative or greater than " + Integer.MAX_VALUE);
+        try {
+            final List<UserImpl> list = managerProvider.get()
+                                                       .createNamedQuery("User.findByEmail", UserImpl.class)
+                                                       .setParameter("email", emailKey + "%")
+                                                       .setMaxResults(maxItems)
+                                                       .setFirstResult((int)skipCount)
+                                                       .getResultList()
+                                                       .stream()
+                                                       .map(JpaUserDao::erasePassword)
+                                                       .collect(toList());
+            return new Page<>(list, skipCount, maxItems, getTotalCount());
+        } catch (RuntimeException x) {
+            throw new ServerException(x.getLocalizedMessage(), x);
+        }
+    }
+
+    @Override
+    @Transactional
+    public Page<UserImpl> findByName(String nameKey, int maxItems, long skipCount) throws ServerException {
+        checkArgument(maxItems >= 0, "The number of items to return can't be negative.");
+        checkArgument(skipCount >= 0 && skipCount <= Integer.MAX_VALUE,
+                      "The number of items to skip can't be negative or greater than " + Integer.MAX_VALUE);
+        try {
+            final List<UserImpl> list = managerProvider.get()
+                                                       .createNamedQuery("User.findByName", UserImpl.class)
+                                                       .setParameter("name", nameKey + "%")
+                                                       .setMaxResults(maxItems)
+                                                       .setFirstResult((int)skipCount)
+                                                       .getResultList()
+                                                       .stream()
+                                                       .map(JpaUserDao::erasePassword)
+                                                       .collect(toList());
+            return new Page<>(list, skipCount, maxItems, getTotalCount());
+        } catch (RuntimeException x) {
+            throw new ServerException(x.getLocalizedMessage(), x);
+        }
+    }
+
+    @Override
+    @Transactional
     public long getTotalCount() throws ServerException {
         try {
             return managerProvider.get().createNamedQuery("User.getTotalCount", Long.class).getSingleResult();

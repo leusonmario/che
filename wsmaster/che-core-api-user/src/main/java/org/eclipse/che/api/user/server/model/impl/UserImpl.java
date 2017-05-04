@@ -49,8 +49,15 @@ import java.util.Objects;
                 @NamedQuery(name = "User.getAll",
                             query = "SELECT u FROM Usr u"),
                 @NamedQuery(name = "User.getTotalCount",
-                            query = "SELECT COUNT(u) FROM Usr u")
-
+                            query = "SELECT COUNT(u) FROM Usr u"),
+                @NamedQuery(name = "User.findByEmail",
+                            query = "SELECT u FROM Usr u WHERE u.email LIKE :email"),
+                @NamedQuery(name = "User.findByEmailTotalCount",
+                            query = "SELECT COUNT(u) FROM Usr u WHERE u.email LIKE :email"),
+                @NamedQuery(name = "User.findByName",
+                            query = "SELECT u FROM Usr u WHERE u.name LIKE :name"),
+                @NamedQuery(name = "User.findByNameTotalCount",
+                            query = "SELECT COUNT(u) FROM Usr u WHERE u.name LIKE :name")
         }
 )
 @Table(name = "usr")

@@ -176,6 +176,10 @@ public interface UserDao {
      */
     Page<UserImpl> getAll(int maxItems, long skipCount) throws ServerException;
 
+    Page<UserImpl> findByEmail(String emailKey, int maxItems, long skipCount) throws ServerException;
+
+    Page<UserImpl> findByName(String nameKey, int maxItems, long skipCount) throws ServerException;
+
     /**
      * Get count of all users from persistent layer.
      *
