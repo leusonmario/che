@@ -351,7 +351,12 @@ public class TreeViewImpl extends Composite implements TreeView {
                         delegate.onNodeCheckBoxValueChanged(node);
 
                         List<Path> paths = new ArrayList<>(allPaths);
-                        Collections.sort(paths, Collections.<Path>reverseOrder());
+                        Collections.sort(paths, new Comparator<Path>() {
+                            @Override
+                            public int compare(Path o1, Path o2) {
+                                return o2.toString().compareTo(o1.toString());
+                            }
+                        });
                         List<Path> unselpaths = new ArrayList<>(unselectedPaths);
 
                         for (Path path : paths) {
@@ -388,10 +393,16 @@ public class TreeViewImpl extends Composite implements TreeView {
 
         private boolean hasSelectedChildes(Path givenPath) {
             List<Path> paths = new ArrayList<>(allPaths);
+            Collections.sort(paths, new Comparator<Path>() {
+                @Override
+                public int compare(Path o1, Path o2) {
+                    return o1.toString().compareTo(o2.toString());
+                }
+            });
             List<Path> unselpaths = new ArrayList<>(unselectedPaths);
 
 
-            for (Path path : allPaths) {
+            for (Path path : paths) {
                 boolean prefixOf = givenPath.isPrefixOf(path);
                 boolean equals = !path.equals(givenPath);
                 if (prefixOf && equals && !unselectedPaths.contains(path)) {
