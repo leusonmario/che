@@ -391,7 +391,7 @@ public class TreeViewImpl extends Composite implements TreeView {
             List<Path> unselpaths = new ArrayList<>(unselectedPaths);
 
 
-            for (Path path : unselectedPaths) {
+            for (Path path : allPaths) {
                 boolean prefixOf = givenPath.isPrefixOf(path);
                 boolean equals = !path.equals(givenPath);
                 if (prefixOf && equals && !unselectedPaths.contains(path)) {
