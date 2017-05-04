@@ -126,6 +126,6 @@ public class ChangedFileNode extends AbstractTreeNode implements HasPresentation
 
     @Override
     public void actionPerformed() {
-        actionDelegate.onFileNodeDoubleClicked();
+        actionDelegate.onFileNodeDoubleClicked(pathName, status);
     }
 }

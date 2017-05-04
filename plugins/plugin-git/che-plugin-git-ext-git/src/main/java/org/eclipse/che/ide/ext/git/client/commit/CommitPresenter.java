@@ -34,10 +34,14 @@ import org.eclipse.che.ide.commons.exception.ServerException;
 import org.eclipse.che.ide.ext.git.client.DateTimeFormatter;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.compare.FileStatus.Status;
+import org.eclipse.che.ide.ext.git.client.compare.changedList.ChangedListPresenter;
 import org.eclipse.che.ide.ext.git.client.outputconsole.GitOutputConsole;
 import org.eclipse.che.ide.ext.git.client.outputconsole.GitOutputConsoleFactory;
+import org.eclipse.che.ide.ext.git.client.tree.ChangedFileNode;
+import org.eclipse.che.ide.ext.git.client.tree.ChangedFolderNode;
 import org.eclipse.che.ide.ext.git.client.tree.TreeCallBack;
 import org.eclipse.che.ide.ext.git.client.tree.TreePresenter;
+import org.eclipse.che.ide.ext.git.client.tree.TreeView;
 import org.eclipse.che.ide.processes.panel.ProcessesPanelPresenter;
 import org.eclipse.che.ide.resource.Path;
 
@@ -79,10 +83,8 @@ public class CommitPresenter implements CommitView.ActionDelegate {
 
     private Project project;
 
-    private final TreeCallBack callBack;
-
     @Inject
-    public CommitPresenter(CommitView view,
+    public CommitPresenter(final CommitView view,
                            GitServiceClient service,
                            TreePresenter treePresenter,
                            GitLocalizationConstant constant,
@@ -103,13 +105,6 @@ public class CommitPresenter implements CommitView.ActionDelegate {
         this.service = service;
         this.constant = constant;
         this.notificationManager = notificationManager;
-
-        this.callBack = new TreeCallBack() {
-            @Override
-            public void onNodeSelected(Node node) {
-
-            }
-        };
 
         this.view.setTreeView(treePresenter.getView());
     }
@@ -152,7 +147,7 @@ public class CommitPresenter implements CommitView.ActionDelegate {
                            for (String item : changedFiles) {
                                items.put(item.substring(2, item.length()), defineStatus(item.substring(0, 1)));
                            }
-                           treePresenter.show(items, callBack);
+                           treePresenter.show(items, null);
                        }
                    }
                })
@@ -167,16 +162,8 @@ public class CommitPresenter implements CommitView.ActionDelegate {
     @Override
     public void onCommitClicked() {
         final String message = view.getMessage();
-    }
 
-    private void addSelectedAndCommit(final String message, final boolean commitAll, final boolean amend) {
-        service.add(appContext.getDevMachine(), project.getLocation(), false, toRelativePaths(appContext.getResources()))
-               .then(new Operation<Void>() {
-                   @Override
-                   public void apply(Void ignored) throws OperationException {
-                       doCommit(message, false, commitAll, amend);
-                   }
-               });
+        doCommit(message, false, false);
     }
 
     private Path[] toRelativePaths(Resource[] resources) {
@@ -191,14 +178,14 @@ public class CommitPresenter implements CommitView.ActionDelegate {
     }
 
     @VisibleForTesting
-    void doCommit(final String message, final boolean addAll, final boolean commitAll, final boolean amend) {
+    void doCommit(final String message, final boolean commitAll, final boolean amend) {
         final Resource[] resources = appContext.getResources();
         checkState(resources != null);
         service.commit(appContext.getDevMachine(),
                        project.getLocation(),
                        message,
-                       addAll,
-                       commitAll ? new Path[]{} : toRelativePaths(resources),
+                       false,
+                       toRelativePaths(resources),
                        amend)
                .then(new Operation<Revision>() {
                    @Override

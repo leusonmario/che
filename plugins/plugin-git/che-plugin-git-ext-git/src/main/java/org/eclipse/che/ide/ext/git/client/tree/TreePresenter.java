@@ -10,16 +10,28 @@
  *******************************************************************************/
 package org.eclipse.che.ide.ext.git.client.tree;
 
+import com.google.common.base.Optional;
 import com.google.inject.Inject;
 
+import org.eclipse.che.api.promises.client.Operation;
+import org.eclipse.che.api.promises.client.OperationException;
+import org.eclipse.che.api.promises.client.PromiseError;
+import org.eclipse.che.commons.annotation.Nullable;
+import org.eclipse.che.ide.api.app.AppContext;
 import org.eclipse.che.ide.api.data.tree.Node;
+import org.eclipse.che.ide.api.notification.NotificationManager;
+import org.eclipse.che.ide.api.resources.File;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
+import org.eclipse.che.ide.ext.git.client.compare.ComparePresenter;
 import org.eclipse.che.ide.ext.git.client.compare.FileStatus.Status;
+import org.eclipse.che.ide.resource.Path;
 
 import javax.validation.constraints.NotNull;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.NOT_EMERGE_MODE;
+import static org.eclipse.che.ide.api.notification.StatusNotification.Status.FAIL;
 
 /**
  * Presenter for displaying list of changed files.
@@ -29,6 +41,9 @@ import java.util.Set;
  */
 public class TreePresenter implements TreeView.ActionDelegate {
     private final TreeView                view;
+    private final AppContext              appContext;
+    private final NotificationManager     notificationManager;
+    private final ComparePresenter        comparePresenter;
     private final GitLocalizationConstant locale;
 
     private Map<String, Status> changedFiles;
@@ -36,9 +51,16 @@ public class TreePresenter implements TreeView.ActionDelegate {
     private boolean             treeViewEnabled;
 
     @Inject
-    public TreePresenter(GitLocalizationConstant locale, TreeView view) {
+    public TreePresenter(GitLocalizationConstant locale,
+                         TreeView view,
+                         AppContext appContext,
+                         NotificationManager notificationManager,
+                         ComparePresenter comparePresenter) {
         this.locale = locale;
         this.view = view;
+        this.appContext = appContext;
+        this.notificationManager = notificationManager;
+        this.comparePresenter = comparePresenter;
         this.view.setDelegate(this);
     }
 
@@ -48,8 +70,7 @@ public class TreePresenter implements TreeView.ActionDelegate {
      * @param changedFiles
      *         Map with files and their status
      */
-    public void show(Map<String, Status> changedFiles,
-                     TreeCallBack callBack) {
+    public void show(Map<String, Status> changedFiles, @Nullable TreeCallBack callBack) {
         this.changedFiles = changedFiles;
         this.callBack = callBack;
         view.setEnableExpandCollapseButtons(treeViewEnabled);
@@ -61,13 +82,35 @@ public class TreePresenter implements TreeView.ActionDelegate {
         return view;
     }
 
-    public Set<String> getUnselected() {
+    public Set<Path> getSelected() {
         return null;
     }
 
     @Override
-    public void onFileNodeDoubleClicked() {
+    public void onFileNodeDoubleClicked(String file, final Status status) {
+        appContext.getRootProject()
+                  .getFile(file)
+                  .then(new Operation<Optional<File>>() {
+                      @Override
+                      public void apply(Optional<File> file) throws OperationException {
+                          if (file.isPresent()) {
+                              comparePresenter.showCompareWithLatest(file.get(), status, "HEAD");
+                          }
+                      }
+                  })
+                  .catchError(new Operation<PromiseError>() {
+                      @Override
+                      public void apply(PromiseError error) throws OperationException {
+                          notificationManager.notify(error.getMessage(), FAIL, NOT_EMERGE_MODE);
+                      }
+                  });
+    }
 
+    @Override
+    public void onNodeCheckBoxValueChanged(Node node) {
+        if (callBack != null) {
+            callBack.onFileNodeCheckBoxValueChanged(node);
+        }
     }
 
     @Override
@@ -89,7 +132,9 @@ public class TreePresenter implements TreeView.ActionDelegate {
 
     @Override
     public void onNodeSelected(@NotNull Node node) {
-        callBack.onNodeSelected(node);
+        if (callBack != null) {
+            callBack.onNodeSelected(node);
+        }
     }
 
     private void viewChangedFiles() {

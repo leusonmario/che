@@ -145,6 +145,7 @@ public class CommitViewImpl extends Window implements CommitView {
 
     @Override
     public void setTreeView(TreeView treeView) {
+        treeView.applyCheckBoxes();
         this.filesPanel.add(treeView);
     }
 

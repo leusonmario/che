@@ -56,7 +56,7 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
     private Status  status;
 
     @Inject
-    public ChangedListPresenter(ChangedListView view,
+    public ChangedListPresenter(final ChangedListView view,
                                 ComparePresenter comparePresenter,
                                 NotificationManager notificationManager,
                                 TreePresenter treePresenter) {
@@ -76,6 +76,11 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
                 ChangedListPresenter.this.view.setEnableCompareButton(true);
                 ChangedListPresenter.this.file = node.getName();
                 ChangedListPresenter.this.status = ((ChangedFileNode)node).getStatus();
+            }
+
+            @Override
+            public void onFileNodeCheckBoxValueChanged(Node path) {
+
             }
         };
 

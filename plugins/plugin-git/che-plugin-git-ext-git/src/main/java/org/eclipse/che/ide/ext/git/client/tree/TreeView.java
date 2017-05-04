@@ -13,6 +13,9 @@ package org.eclipse.che.ide.ext.git.client.tree;
 import org.eclipse.che.ide.api.data.tree.Node;
 import org.eclipse.che.ide.api.mvp.View;
 import org.eclipse.che.ide.ext.git.client.compare.FileStatus.Status;
+import org.eclipse.che.ide.resource.Path;
+import org.eclipse.che.ide.ui.smartTree.TreeStyles;
+import org.eclipse.che.ide.ui.smartTree.presentation.PresentationRenderer;
 
 import javax.validation.constraints.NotNull;
 import java.util.List;
@@ -47,9 +50,9 @@ public interface TreeView extends View<TreeView.ActionDelegate> {
         void onNodeSelected(Node node);
 
         /** Performs any actions appropriate in response to the user double clicked on the file node. */
-        void onFileNodeDoubleClicked();
+        void onFileNodeDoubleClicked(String file, Status status);
 
-//        void onFileNodeCheckBoxValueChanged(String item);
+        void onNodeCheckBoxValueChanged(Node node);
     }
 
     /**
@@ -89,4 +92,6 @@ public interface TreeView extends View<TreeView.ActionDelegate> {
      *         text that will be displayed in the button
      */
     void setTextToChangeViewModeButton(@NotNull String text);
+
+    void applyCheckBoxes();
 }
