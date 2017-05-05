@@ -26,12 +26,15 @@
     </ui:style>
 
     <g:DockLayoutPanel unit="PX" width="600px" height="500px">
-        <g:north size="400" addStyleNames="{style.emptyBorder}">
+        <g:north size="350" addStyleNames="{style.emptyBorder}">
             <g:FlowPanel ui:field="filesPanel"/>
         </g:north>
-        <g:center addStyleNames="{style.emptyBorder}">
-            <g:TextArea ui:field="message" width="588px" height="88px" addStyleNames="{res.gitCSS.textFont}" debugId="git-commit-message"/>
+        <g:center size="50" addStyleNames="{style.emptyBorder}">
+            <g:CheckBox ui:field="amend" HTML="{locale.commitAmendFieldTitle}"/>
         </g:center>
+        <g:south size="130" addStyleNames="{style.emptyBorder}">
+            <g:TextArea ui:field="message" width="588px" height="118px" addStyleNames="{res.gitCSS.textFont}" debugId="git-commit-message"/>
+        </g:south>
 
     </g:DockLayoutPanel>
 

@@ -51,8 +51,6 @@ public interface TreeView extends View<TreeView.ActionDelegate> {
 
         /** Performs any actions appropriate in response to the user double clicked on the file node. */
         void onFileNodeDoubleClicked(String file, Status status);
-
-        void onNodeCheckBoxValueChanged(Node node);
     }
 
     /**
@@ -93,5 +91,11 @@ public interface TreeView extends View<TreeView.ActionDelegate> {
      */
     void setTextToChangeViewModeButton(@NotNull String text);
 
-    void applyCheckBoxes();
+    void setTreeRender(PresentationRenderer render);
+
+    TreeStyles getTreeStyles();
+
+    void refreshNodes();
+
+    List<Path> getPaths();
 }

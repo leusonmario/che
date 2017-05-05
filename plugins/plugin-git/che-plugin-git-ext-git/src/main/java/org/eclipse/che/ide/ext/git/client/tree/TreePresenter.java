@@ -107,13 +107,6 @@ public class TreePresenter implements TreeView.ActionDelegate {
     }
 
     @Override
-    public void onNodeCheckBoxValueChanged(Node node) {
-        if (callBack != null) {
-            callBack.onFileNodeCheckBoxValueChanged(node);
-        }
-    }
-
-    @Override
     public void onChangeViewModeButtonClicked() {
         treeViewEnabled = !treeViewEnabled;
         viewChangedFiles();

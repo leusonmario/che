@@ -10,13 +10,16 @@
  *******************************************************************************/
 package org.eclipse.che.ide.ext.git.client.commit;
 
+import org.eclipse.che.ide.api.data.tree.Node;
 import org.eclipse.che.ide.api.mvp.View;
 import org.eclipse.che.ide.ext.git.client.compare.FileStatus;
 import org.eclipse.che.ide.ext.git.client.tree.TreeCallBack;
 import org.eclipse.che.ide.ext.git.client.tree.TreeView;
+import org.eclipse.che.ide.resource.Path;
 
 import javax.validation.constraints.NotNull;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The view of {@link CommitPresenter}.
@@ -39,6 +42,10 @@ public interface CommitView extends View<CommitView.ActionDelegate> {
          * Set the commit message for an amend commit.
          */
         void setAmendCommitMessage();
+
+        void onFileNodeCheckBoxValueChanged(Path path, boolean newCheckBoxValue);
+
+        Set<String> getFilesToCommit();
     }
 
     /** @return entered message */
@@ -52,6 +59,9 @@ public interface CommitView extends View<CommitView.ActionDelegate> {
      *         text what need to insert
      */
     void setMessage(@NotNull String message);
+
+    /** @return <code>true</code> if need to amend the last commit, and <code>false</code> otherwise */
+    boolean isAmend();
 
     /**
      * Change the enable state of the commit button.

@@ -46,9 +46,12 @@ import org.eclipse.che.ide.processes.panel.ProcessesPanelPresenter;
 import org.eclipse.che.ide.resource.Path;
 
 import javax.validation.constraints.NotNull;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.singletonList;
@@ -81,9 +84,12 @@ public class CommitPresenter implements CommitView.ActionDelegate {
     private final GitOutputConsoleFactory gitOutputConsoleFactory;
     private final ProcessesPanelPresenter consolesPanelPresenter;
 
-    private Project project;
+    private Project      project;
+    private Set<String>  allFiles;
+    private List<String> selectedFiles;
 
     @Inject
+
     public CommitPresenter(final CommitView view,
                            GitServiceClient service,
                            TreePresenter treePresenter,
@@ -106,6 +112,7 @@ public class CommitPresenter implements CommitView.ActionDelegate {
         this.constant = constant;
         this.notificationManager = notificationManager;
 
+        this.selectedFiles = new ArrayList<>();
         this.view.setTreeView(treePresenter.getView());
     }
 
@@ -131,6 +138,7 @@ public class CommitPresenter implements CommitView.ActionDelegate {
                                                 .removeTrailingSeparator()
                                                 .toString();
 
+
         service.diff(appContext.getDevMachine(),
                      project.getLocation(),
                      selectedItemPath.isEmpty() ? null : singletonList(selectedItemPath),
@@ -147,6 +155,9 @@ public class CommitPresenter implements CommitView.ActionDelegate {
                            for (String item : changedFiles) {
                                items.put(item.substring(2, item.length()), defineStatus(item.substring(0, 1)));
                            }
+                           CommitPresenter.this.selectedFiles.clear();
+                           CommitPresenter.this.selectedFiles.addAll(items.keySet());
+                           CommitPresenter.this.allFiles = items.keySet();
                            treePresenter.show(items, null);
                        }
                    }
@@ -161,37 +172,23 @@ public class CommitPresenter implements CommitView.ActionDelegate {
 
     @Override
     public void onCommitClicked() {
-        final String message = view.getMessage();
-
-        doCommit(message, false, false);
-    }
-
-    private Path[] toRelativePaths(Resource[] resources) {
-        final Path[] paths = new Path[resources.length];
-
-        for (int i = 0; i < resources.length; i++) {
-            checkState(project.getLocation().isPrefixOf(resources[i].getLocation()));
-            paths[i] = resources[i].getLocation().removeFirstSegments(project.getLocation().segmentCount());
-        }
-
-        return paths;
-    }
-
-    @VisibleForTesting
-    void doCommit(final String message, final boolean commitAll, final boolean amend) {
-        final Resource[] resources = appContext.getResources();
-        checkState(resources != null);
-        service.commit(appContext.getDevMachine(),
-                       project.getLocation(),
-                       message,
-                       false,
-                       toRelativePaths(resources),
-                       amend)
-               .then(new Operation<Revision>() {
+        service.add(appContext.getDevMachine(), appContext.getRootProject().getLocation(), false, toRelativePaths())
+               .then(new Operation<Void>() {
                    @Override
-                   public void apply(Revision revision) throws OperationException {
-                       onCommitSuccess(revision);
-                       view.close();
+                   public void apply(Void arg) throws OperationException {
+                       service.commit(appContext.getDevMachine(),
+                                      project.getLocation(),
+                                      view.getMessage(),
+                                      false,
+                                      toRelativePaths(),
+                                      view.isAmend())
+                              .then(new Operation<Revision>() {
+                                  @Override
+                                  public void apply(Revision revision) throws OperationException {
+                                      onCommitSuccess(revision);
+                                      view.close();
+                                  }
+                              });
                    }
                })
                .catchError(new Operation<PromiseError>() {
@@ -201,6 +198,16 @@ public class CommitPresenter implements CommitView.ActionDelegate {
                        view.close();
                    }
                });
+    }
+
+    private Path[] toRelativePaths() {
+        final Path[] paths = new Path[selectedFiles.size()];
+
+        for (int i = 0; i < selectedFiles.size(); i++) {
+            paths[i] = Path.valueOf(selectedFiles.get(i));
+        }
+
+        return paths;
     }
 
     private void onCommitSuccess(@NotNull final Revision revision) {
@@ -240,8 +247,8 @@ public class CommitPresenter implements CommitView.ActionDelegate {
 
     @Override
     public void onValueChanged() {
-        String message = view.getMessage();
-        view.setEnableCommitButton(!message.isEmpty());
+        boolean amend = view.isAmend();
+        view.setEnableCommitButton(!view.getMessage().isEmpty() && (!selectedFiles.isEmpty() || amend));
     }
 
     @Override
@@ -275,5 +282,19 @@ public class CommitPresenter implements CommitView.ActionDelegate {
                        }
                    }
                });
+    }
+
+    @Override
+    public void onFileNodeCheckBoxValueChanged(Path path, boolean newCheckBoxValue) {
+        if (newCheckBoxValue) {
+            selectedFiles.add(path.toString());
+        } else {
+            selectedFiles.remove(path.toString());
+        }
+    }
+
+    @Override
+    public Set<String> getFilesToCommit() {
+        return allFiles;
     }
 }

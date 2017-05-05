@@ -16,6 +16,4 @@ import javax.validation.constraints.NotNull;
 
 public interface TreeCallBack {
     void onNodeSelected(@NotNull Node node);
-
-    void onFileNodeCheckBoxValueChanged(Node node);
 }

@@ -41,6 +41,7 @@ import org.eclipse.che.ide.ui.smartTree.TreeStyles;
 import org.eclipse.che.ide.ui.smartTree.compare.NameComparator;
 import org.eclipse.che.ide.ui.smartTree.event.SelectionChangedEvent;
 import org.eclipse.che.ide.ui.smartTree.presentation.DefaultPresentationRenderer;
+import org.eclipse.che.ide.ui.smartTree.presentation.PresentationRenderer;
 
 import javax.validation.constraints.NotNull;
 import java.util.ArrayList;
@@ -82,9 +83,7 @@ public class TreeViewImpl extends Composite implements TreeView {
 
     private ActionDelegate delegate;
     private Tree           tree;
-
-    private Set<Path> unselectedPaths;
-    private Set<Path> allPaths;
+    private List<Path>     paths;
 
     private final NodesResources nodesResources;
 
@@ -95,8 +94,7 @@ public class TreeViewImpl extends Composite implements TreeView {
         this.res = resources;
         this.locale = locale;
         this.nodesResources = nodesResources;
-        this.unselectedPaths = new HashSet<>();
-        this.allPaths = new HashSet<>();
+        this.paths = new ArrayList<>();
 
         initWidget(uiBinder.createAndBindUi(this));
 
@@ -117,10 +115,6 @@ public class TreeViewImpl extends Composite implements TreeView {
         changedFilesPanel.add(tree);
 
         createButtons();
-    }
-
-    public Set<Path> getUnselectedPaths() {
-        return unselectedPaths;
     }
 
     @Override
@@ -172,8 +166,25 @@ public class TreeViewImpl extends Composite implements TreeView {
     }
 
     @Override
-    public void applyCheckBoxes() {
-        tree.setPresentationRenderer(new ChangedListRender(tree.getTreeStyles()));
+    public void setTreeRender(PresentationRenderer render) {
+        tree.setPresentationRenderer(render);
+    }
+
+    @Override
+    public TreeStyles getTreeStyles() {
+        return tree.getTreeStyles();
+    }
+
+    @Override
+    public void refreshNodes() {
+        for (Node node : tree.getAllChildNodes(tree.getRootNodes(), false)) {
+            tree.refresh(node);
+        }
+    }
+
+    @Override
+    public List<Path> getPaths() {
+        return paths;
     }
 
     private void createButtons() {
@@ -207,7 +218,7 @@ public class TreeViewImpl extends Composite implements TreeView {
         List<String> allFiles = new ArrayList<>(items.keySet());
         List<String> allFolders = new ArrayList<>();
         for (String file : allFiles) {
-            allPaths.add(Path.valueOf(file));
+            this.paths.add(Path.valueOf(file));
             String path = file.substring(0, file.lastIndexOf("/"));
             if (!allFolders.contains(path)) {
                 allFolders.add(path);
@@ -243,7 +254,7 @@ public class TreeViewImpl extends Composite implements TreeView {
 
             //Map child files to related folders of current nesting level or just create a common folder
             for (String path : allFolders) {
-                allPaths.add(Path.valueOf(path));
+                paths.add(Path.valueOf(path));
                 if (!(Path.valueOf(path).segmentCount() == i - 1)) {
                     continue;
                 }
@@ -328,89 +339,5 @@ public class TreeViewImpl extends Composite implements TreeView {
             }
         }
         return commonPath.toString();
-    }
-
-    private class ChangedListRender extends DefaultPresentationRenderer<Node> {
-        ChangedListRender(TreeStyles treeStyles) {
-            super(treeStyles);
-        }
-
-        @Override
-        public Element render(final Node node, final String domID, final Tree.Joint joint, final int depth) {
-            Element rootContainer = super.render(node, domID, joint, depth);
-            Element nodeContainer = rootContainer.getFirstChildElement();
-            final Element checkBoxElement = new CheckBox().getElement();
-            final InputElement checkBoxInputElement = (InputElement)checkBoxElement.getElementsByTagName("input").getItem(0);
-            final Path nodePath = Path.valueOf(node instanceof ChangedFolderNode ? ((ChangedFolderNode)node).getPath() : node.getName());
-            checkBoxInputElement.setChecked(!unselectedPaths.contains(nodePath));
-            Event.sinkEvents(checkBoxElement, Event.ONCLICK);
-            Event.setEventListener(checkBoxElement, new EventListener() {
-                @Override
-                public void onBrowserEvent(Event event) {
-                    if (Event.ONCLICK == event.getTypeInt() && event.getTarget().getTagName().equalsIgnoreCase("label")) {
-                        delegate.onNodeCheckBoxValueChanged(node);
-
-                        List<Path> paths = new ArrayList<>(allPaths);
-                        Collections.sort(paths, new Comparator<Path>() {
-                            @Override
-                            public int compare(Path o1, Path o2) {
-                                return o2.toString().compareTo(o1.toString());
-                            }
-                        });
-                        List<Path> unselpaths = new ArrayList<>(unselectedPaths);
-
-                        for (Path path : paths) {
-                            if (nodePath.isPrefixOf(path)) {
-                                if (checkBoxInputElement.isChecked()) {
-                                    unselectedPaths.add(path);
-                                } else {
-                                    unselectedPaths.remove(path);
-                                }
-                            } else if (path.isPrefixOf(nodePath) && !hasSelectedChildes(path)) {
-                                if (checkBoxInputElement.isChecked()) {
-                                    unselectedPaths.add(path);
-                                } else {
-                                    unselectedPaths.remove(path);
-                                }
-                            }
-                        }
-
-                        for (Node node : tree.getAllChildNodes(tree.getRootNodes(), false)) {
-                            tree.refresh(node);
-                        }
-//                        if (tree.isExpanded(node)) {
-//                            for (Node node : tree.getAllChildNodes(singletonList(node), false)) {
-//                                tree.refresh(node);
-//                            }
-//                        }
-                    }
-                }
-            });
-
-            nodeContainer.insertAfter(checkBoxElement, nodeContainer.getFirstChild());
-            return rootContainer;
-        }
-
-        private boolean hasSelectedChildes(Path givenPath) {
-            List<Path> paths = new ArrayList<>(allPaths);
-            Collections.sort(paths, new Comparator<Path>() {
-                @Override
-                public int compare(Path o1, Path o2) {
-                    return o1.toString().compareTo(o2.toString());
-                }
-            });
-            List<Path> unselpaths = new ArrayList<>(unselectedPaths);
-
-
-            for (Path path : paths) {
-                boolean prefixOf = givenPath.isPrefixOf(path);
-                boolean equals = !path.equals(givenPath);
-                if (prefixOf && equals && !unselectedPaths.contains(path)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
     }
 }

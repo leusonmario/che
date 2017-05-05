@@ -77,11 +77,6 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
                 ChangedListPresenter.this.file = node.getName();
                 ChangedListPresenter.this.status = ((ChangedFileNode)node).getStatus();
             }
-
-            @Override
-            public void onFileNodeCheckBoxValueChanged(Node path) {
-
-            }
         };
 
         this.view.setTreeView(treePresenter.getView());
