@@ -13,5 +13,5 @@
 -- from Codenvy S.A..
 --
 
-CREATE INDEX index_user_email_pattern ON usr(name text_pattern_ops);
+CREATE INDEX index_user_email_pattern ON usr(email text_pattern_ops);
 
