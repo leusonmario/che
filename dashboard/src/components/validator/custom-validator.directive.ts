@@ -27,14 +27,14 @@ export class CustomValidator {
   }
 
   link($scope, element, attrs, ctrl) {
-    // validate only input element
-    if ('input' === element[0].localName) {
+    // validate only input elements
+    if ('input' === element[0].localName  || 'textarea' === element[0].localName) {
 
       let $testScope = $scope.$parent ? $scope.$parent : $scope;
 
       ctrl.$validators.customValidator = (modelValue) => {
         return $testScope.$eval(attrs.customValidator, {$value: modelValue});
-      }
+      };
     }
   }
 }

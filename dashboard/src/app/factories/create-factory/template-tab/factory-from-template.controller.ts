@@ -24,12 +24,13 @@ export class FactoryFromTemplateCtrl {
   private factoryContent: any;
   private editorOptions: any;
   private templateName: string;
+  private editorErrors: Array<{id: string; message: string}> = [];
 
   /**
    * Default constructor that is using resource injection
    * @ngInject for Dependency injection
    */
-  constructor($filter: ng.IFilterService, cheAPI: CheAPI, cheNotification: CheNotification, $timeout: ng.ITimeoutService) {
+  constructor($rootScope: ng.IRootScopeService, $filter: ng.IFilterService, cheAPI: CheAPI, cheNotification: CheNotification, $timeout: ng.ITimeoutService) {
     this.$filter = $filter;
     this.cheAPI = cheAPI;
     this.cheNotification = cheNotification;
@@ -40,11 +41,22 @@ export class FactoryFromTemplateCtrl {
     this.getFactoryTemplate(this.templateName);
 
     this.editorOptions = {
-      mode: 'application/json',
       onLoad: (editor: any) => {
-        $timeout(() => {
-          editor.refresh();
-        }, 1000);
+        editor.on('change', (codeMirror: any) => {
+          const doc = codeMirror.getDoc();
+          $timeout(() => {
+            this.editorErrors.length = 0;
+            let editorErrors: Array<{id: string; message: string}> = doc.getAllMarks().filter((mark: any) => {
+              return mark.className && mark.className.includes('error');
+            }).map((mark: any) => {
+              const annotation = '__annotation';
+              return {id: mark.id, message: mark[annotation] ? mark[annotation].message : 'Parse error'};
+            });
+            editorErrors.forEach((editorError: {id: string; message: string}) => {
+              this.editorErrors.push(editorError);
+            });
+          }, 1000);
+        });
       }
     };
   }
@@ -63,9 +75,11 @@ export class FactoryFromTemplateCtrl {
     // fetch it:
     let promise = this.cheAPI.getFactoryTemplate().fetchFactoryTemplate(templateName);
 
-    promise.then((factoryContent: any) => {
+    //let factoryTemplate = this.cheAPI.getFactoryTemplate().getFactoryTemplate().getFactoryTemplate(templateName);
+
+    promise.then((factoryTemplate: any) => {
       this.isImporting = false;
-      this.factoryContent = this.$filter('json')(factoryContent, 2);
+      this.factoryContent = this.$filter('json')(factoryTemplate, 2);
     }, (error: any) => {
       this.isImporting = false;
       this.cheNotification.showError(error.data.message ? error.data.message : 'Fail to get factory template.');

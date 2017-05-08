@@ -28,11 +28,18 @@
                            che-font-icon="material-design icon-ic_unfold_more_24px"
                            che-title="complete"></che-toggle-button>
       </che-toggle>
-
-      <textarea ui-codemirror="factoryFromTemplateCtrl.editorOptions"
-                ng-model="factoryFromTemplateCtrl.factoryContent"
-                aria-label="Factory configuration editor">
-      </textarea>
+      <ng-form name="createFactoryForm">
+        <textarea ui-codemirror="factoryFromTemplateCtrl.editorOptions"
+                  ng-model="factoryFromTemplateCtrl.factoryContent"
+                  aria-label="Factory configuration editor"
+                  name="code"
+                  custom-validator="factoryFromTemplateCtrl.editorErrors.length > 0"
+                  required></textarea>
+        <div ng-messages="createFactoryForm.code.$error">
+          <div ng-message="required">Factory's content is required.</div>
+          <div ng-message="customValidator">{{factoryFromTemplateCtrl.editorErrors[0].message}}</div>
+        </div>
+      </ng-form>
     </div>
   </che-label-container>
 </div>

@@ -47,7 +47,7 @@
             <div ng-message="maxlength">The name has to be less than 20 characters long.</div>
           </che-input-box>
         </div>
-      </ng-form>
+
     </che-label-container>
 
     <!--Factory source-->
@@ -113,5 +113,7 @@
                         che-button-title="Create"
                         ng-click="createFactoryCtrl.createFactoryByContent(createFactoryCtrl.factoryContent)"
                         ng-disabled="createFactoryCtrl.isFormInvalid() || !createFactoryCtrl.factoryContent || createFactoryCtrl.isImporting || createFactoryCtrl.isLoading"></che-button-primary>
+
+    </ng-form>
   </div>
 </md-content>

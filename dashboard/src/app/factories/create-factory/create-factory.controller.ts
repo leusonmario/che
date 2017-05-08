@@ -94,7 +94,7 @@ export class CreateFactoryCtrl {
   }
 
   isFormInvalid(): boolean {
-    return this.form ? this.form.$invalid: false;
+    return this.form ? this.form.$invalid : false;
   }
 
   /**
