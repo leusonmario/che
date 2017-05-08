@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.eclipse.che.ide.ext.git.client.commit;
 
+import org.eclipse.che.api.git.shared.Remote;
 import org.eclipse.che.ide.api.data.tree.Node;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.GitResources;
@@ -18,6 +19,8 @@ import org.eclipse.che.ide.ext.git.client.tree.ChangedFolderNode;
 import org.eclipse.che.ide.ext.git.client.tree.TreeView;
 import org.eclipse.che.ide.resource.Path;
 import org.eclipse.che.ide.ui.ShiftableTextArea;
+import org.eclipse.che.ide.ui.dropdown.DropdownList;
+import org.eclipse.che.ide.ui.dropdown.DropdownListItem;
 import org.eclipse.che.ide.ui.smartTree.Tree;
 import org.eclipse.che.ide.ui.smartTree.presentation.DefaultPresentationRenderer;
 import org.eclipse.che.ide.ui.window.Window;
@@ -25,10 +28,13 @@ import org.eclipse.che.ide.ui.window.Window;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.dom.client.Element;
 import com.google.gwt.dom.client.InputElement;
+import com.google.gwt.event.dom.client.ChangeEvent;
+import com.google.gwt.event.dom.client.ChangeHandler;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.event.dom.client.KeyUpEvent;
 import com.google.gwt.event.logical.shared.ValueChangeEvent;
+import com.google.gwt.event.logical.shared.ValueChangeHandler;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
@@ -38,6 +44,7 @@ import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.FlowPanel;
+import com.google.gwt.user.client.ui.ListBox;
 import com.google.gwt.user.client.ui.TextArea;
 import com.google.gwt.user.client.ui.Widget;
 import com.google.inject.Inject;
@@ -74,9 +81,14 @@ public class CommitViewImpl extends Window implements CommitView {
     @UiField(provided = true)
     final GitLocalizationConstant locale;
 
+    private ListBox  listBox;
+    private CheckBox pushToRemote;
+
     private Button         btnCommit;
     private Button         btnCancel;
     private ActionDelegate delegate;
+
+    private ChangedListRender render;
 
     /**
      * Create view.
@@ -110,6 +122,31 @@ public class CommitViewImpl extends Window implements CommitView {
         });
         btnCommit.addStyleName(resources.windowCss().primaryButton());
 
+        FlowPanel pushPanel = new FlowPanel();
+        listBox = new ListBox(false);
+        listBox.setEnabled(false);
+        listBox.addChangeHandler(new ChangeHandler() {
+            @Override
+            public void onChange(ChangeEvent event) {
+                delegate.onDropdownSelected(listBox.getSelectedValue());
+            }
+        });
+
+        pushToRemote = new CheckBox();
+        pushToRemote.setHTML("Push commited changes ");
+        pushToRemote.addStyleName(resources.windowCss().center());
+        pushToRemote.addValueChangeHandler(new ValueChangeHandler<Boolean>() {
+            @Override
+            public void onValueChange(ValueChangeEvent<Boolean> event) {
+                listBox.setEnabled(event.getValue());
+                delegate.onPushToRemoteCheBoxSelected(event.getValue());
+            }
+        });
+
+        pushPanel.add(pushToRemote);
+        pushPanel.add(listBox);
+        getFooter().add(pushPanel);
+
         addButtonToFooter(btnCommit);
         addButtonToFooter(btnCancel);
     }
@@ -133,8 +170,28 @@ public class CommitViewImpl extends Window implements CommitView {
     }
 
     @Override
+    public void setUnselected(Set<Path> paths) {
+        for (Path path : paths) {
+            render.setNodeCheckBoxSelection(path, false);
+        }
+    }
+
+    @Override
+    public void setAllPaths(Set<Path> paths) {
+        render.setAllPaths(paths);
+    }
+
+    @Override
     public void setMessage(@NotNull String message) {
         this.message.setText(message);
+    }
+
+    @Override
+    public void addToDropdown(List<Remote> remotes) {
+        listBox.clear();
+        for (Remote remote : remotes) {
+            listBox.addItem(remote.getName());
+        }
     }
 
     @Override
@@ -164,12 +221,14 @@ public class CommitViewImpl extends Window implements CommitView {
 
     @Override
     public void showDialog() {
+        render.clearUnselected();
         this.show();
     }
 
     @Override
     public void setTreeView(TreeView treeView) {
-        treeView.setTreeRender(new ChangedListRender(treeView));
+        this.render = new ChangedListRender(treeView);
+        treeView.setTreeRender(render);
         this.filesPanel.add(treeView);
     }
 
@@ -192,17 +251,19 @@ public class CommitViewImpl extends Window implements CommitView {
         }
         delegate.onValueChanged();
     }
+
     private class ChangedListRender extends DefaultPresentationRenderer<Node> {
 
-        private final TreeView   treeView;
-        private final Set<Path>  unselectedPaths;
-        private final List<Path> allPaths;
+        private final TreeView  treeView;
+        private final Set<Path> unselectedPaths;
+
+        private Set<Path> allPaths;
 
         ChangedListRender(TreeView treeView) {
             super(treeView.getTreeStyles());
             this.treeView = treeView;
             this.unselectedPaths = new HashSet<>();
-            this.allPaths = treeView.getPaths();
+            this.allPaths = new HashSet<>();
         }
 
         @Override
@@ -222,40 +283,7 @@ public class CommitViewImpl extends Window implements CommitView {
                             delegate.onFileNodeCheckBoxValueChanged(Path.valueOf(node.getName()), !checkBoxInputElement.isChecked());
                         }
 
-                        List<Path> paths = new ArrayList<>(allPaths);
-                        Collections.sort(paths, new Comparator<Path>() {
-                            @Override
-                            public int compare(Path path1, Path path2) {
-                                return path1.toString().compareTo(path2.toString());
-                            }
-                        });
-
-                        for (Path path : paths) {
-                            if (path.equals(nodePath) || path.isEmpty()) {
-                                continue;
-                            }
-                            if (path.isPrefixOf(nodePath) && !hasSelectedChildes(path)) {
-                                updateFilesList(checkBoxInputElement.isChecked(), path);
-                            }
-                        }
-
-                        Collections.sort(paths, new Comparator<Path>() {
-                            @Override
-                            public int compare(Path o1, Path o2) {
-                                return o2.toString().compareTo(o1.toString());
-                            }
-                        });
-
-                        for (Path path : paths) {
-                            if (path.isEmpty()) {
-                                continue;
-                            }
-                            if (nodePath.isPrefixOf(path)) {
-                                updateFilesList(checkBoxInputElement.isChecked(), path);
-                            } else if (path.isPrefixOf(nodePath) && !hasSelectedChildes(path)) {
-                                updateFilesList(checkBoxInputElement.isChecked(), path);
-                            }
-                        }
+                        setNodeCheckBoxSelection(nodePath, checkBoxInputElement.isChecked());
 
                         treeView.refreshNodes();
                         delegate.onValueChanged();
@@ -267,13 +295,50 @@ public class CommitViewImpl extends Window implements CommitView {
             return rootContainer;
         }
 
-        private void updateFilesList(boolean checkBoxValue, Path path) {
+        public void setNodeCheckBoxSelection(Path nodePath, boolean isChecked) {
+            List<Path> paths = new ArrayList<>(allPaths);
+            Collections.sort(paths, new Comparator<Path>() {
+                @Override
+                public int compare(Path path1, Path path2) {
+                    return path1.toString().compareTo(path2.toString());
+                }
+            });
+
+            for (Path path : paths) {
+                if (path.equals(nodePath) || path.isEmpty()) {
+                    continue;
+                }
+                if (path.isPrefixOf(nodePath) && !hasSelectedChildes(path)) {
+                    saveSelection(isChecked, path);
+                }
+            }
+
+            Collections.sort(paths, new Comparator<Path>() {
+                @Override
+                public int compare(Path o1, Path o2) {
+                    return o2.toString().compareTo(o1.toString());
+                }
+            });
+
+            for (Path path : paths) {
+                if (path.isEmpty()) {
+                    continue;
+                }
+                if (nodePath.isPrefixOf(path)) {
+                    saveSelection(isChecked, path);
+                } else if (path.isPrefixOf(nodePath) && !hasSelectedChildes(path)) {
+                    saveSelection(isChecked, path);
+                }
+            }
+        }
+
+        private void saveSelection(boolean checkBoxValue, Path path) {
             if (checkBoxValue) {
                 unselectedPaths.add(path);
             } else {
                 unselectedPaths.remove(path);
             }
-            if (delegate.getFilesToCommit().contains(path.toString())) {
+            if (delegate.getChangedFiles().contains(path.toString())) {
                 delegate.onFileNodeCheckBoxValueChanged(path, !checkBoxValue);
             }
         }
@@ -285,6 +350,15 @@ public class CommitViewImpl extends Window implements CommitView {
                 }
             }
             return false;
+        }
+
+        public void setAllPaths(Set<Path> allPaths) {
+            this.allPaths = allPaths;
+        }
+
+        public void clearUnselected() {
+            unselectedPaths.clear();
+            unselectedPaths.addAll(allPaths);
         }
     }
 }

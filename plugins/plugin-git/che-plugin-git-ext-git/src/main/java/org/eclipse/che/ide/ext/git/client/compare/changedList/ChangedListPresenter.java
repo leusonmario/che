@@ -30,7 +30,9 @@ import org.eclipse.che.ide.ext.git.client.tree.TreeCallBack;
 import org.eclipse.che.ide.ext.git.client.tree.TreePresenter;
 import org.eclipse.che.ide.resource.Path;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.NOT_EMERGE_MODE;
 import static org.eclipse.che.ide.api.notification.StatusNotification.Status.FAIL;
@@ -76,6 +78,11 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
                 ChangedListPresenter.this.view.setEnableCompareButton(true);
                 ChangedListPresenter.this.file = node.getName();
                 ChangedListPresenter.this.status = ((ChangedFileNode)node).getStatus();
+            }
+
+            @Override
+            public void onTreeRendered(Set<Path> paths) {
+                //ignore
             }
         };
 

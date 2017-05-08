@@ -10,14 +10,13 @@
  *******************************************************************************/
 package org.eclipse.che.ide.ext.git.client.commit;
 
-import org.eclipse.che.ide.api.data.tree.Node;
+import org.eclipse.che.api.git.shared.Remote;
 import org.eclipse.che.ide.api.mvp.View;
-import org.eclipse.che.ide.ext.git.client.compare.FileStatus;
-import org.eclipse.che.ide.ext.git.client.tree.TreeCallBack;
 import org.eclipse.che.ide.ext.git.client.tree.TreeView;
 import org.eclipse.che.ide.resource.Path;
 
 import javax.validation.constraints.NotNull;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -38,6 +37,10 @@ public interface CommitView extends View<CommitView.ActionDelegate> {
         /** Performs any actions appropriate in response to the user having changed something. */
         void onValueChanged();
 
+        void onDropdownSelected(String item);
+
+        void onPushToRemoteCheBoxSelected(boolean value);
+
         /**
          * Set the commit message for an amend commit.
          */
@@ -45,12 +48,16 @@ public interface CommitView extends View<CommitView.ActionDelegate> {
 
         void onFileNodeCheckBoxValueChanged(Path path, boolean newCheckBoxValue);
 
-        Set<String> getFilesToCommit();
+        Set<String> getChangedFiles();
     }
 
     /** @return entered message */
     @NotNull
     String getMessage();
+
+    void setUnselected(Set<Path> paths);
+
+    void setAllPaths(Set<Path> paths);
 
     /**
      * Set content into message filesPanel.
@@ -59,6 +66,8 @@ public interface CommitView extends View<CommitView.ActionDelegate> {
      *         text what need to insert
      */
     void setMessage(@NotNull String message);
+
+    void addToDropdown(List<Remote> remotes);
 
     /** @return <code>true</code> if need to amend the last commit, and <code>false</code> otherwise */
     boolean isAmend();

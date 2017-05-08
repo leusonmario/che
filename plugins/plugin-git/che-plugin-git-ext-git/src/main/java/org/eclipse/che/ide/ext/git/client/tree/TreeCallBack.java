@@ -11,9 +11,14 @@
 package org.eclipse.che.ide.ext.git.client.tree;
 
 import org.eclipse.che.ide.api.data.tree.Node;
+import org.eclipse.che.ide.resource.Path;
 
 import javax.validation.constraints.NotNull;
+import java.util.List;
+import java.util.Set;
 
 public interface TreeCallBack {
-    void onNodeSelected(@NotNull Node node);
+    void onNodeSelected(Node node);
+
+    void onTreeRendered(Set<Path> paths);
 }

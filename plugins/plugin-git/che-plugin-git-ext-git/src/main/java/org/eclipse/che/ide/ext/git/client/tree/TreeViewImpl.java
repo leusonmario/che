@@ -11,16 +11,11 @@
 package org.eclipse.che.ide.ext.git.client.tree;
 
 import com.google.gwt.core.client.GWT;
-import com.google.gwt.dom.client.Element;
-import com.google.gwt.dom.client.InputElement;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
-import com.google.gwt.user.client.Event;
-import com.google.gwt.user.client.EventListener;
 import com.google.gwt.user.client.ui.Button;
-import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.DockLayoutPanel;
 import com.google.gwt.user.client.ui.LayoutPanel;
@@ -40,20 +35,16 @@ import org.eclipse.che.ide.ui.smartTree.Tree;
 import org.eclipse.che.ide.ui.smartTree.TreeStyles;
 import org.eclipse.che.ide.ui.smartTree.compare.NameComparator;
 import org.eclipse.che.ide.ui.smartTree.event.SelectionChangedEvent;
-import org.eclipse.che.ide.ui.smartTree.presentation.DefaultPresentationRenderer;
 import org.eclipse.che.ide.ui.smartTree.presentation.PresentationRenderer;
 
 import javax.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static java.util.Collections.singletonList;
 
 /**
  * Implementation of {@link TreeView}.
@@ -83,7 +74,7 @@ public class TreeViewImpl extends Composite implements TreeView {
 
     private ActionDelegate delegate;
     private Tree           tree;
-    private List<Path>     paths;
+    private Set<Path>      allPaths;
 
     private final NodesResources nodesResources;
 
@@ -94,7 +85,7 @@ public class TreeViewImpl extends Composite implements TreeView {
         this.res = resources;
         this.locale = locale;
         this.nodesResources = nodesResources;
-        this.paths = new ArrayList<>();
+        this.allPaths = new HashSet<Path>();
 
         initWidget(uiBinder.createAndBindUi(this));
 
@@ -125,9 +116,12 @@ public class TreeViewImpl extends Composite implements TreeView {
     @Override
     public void viewChangedFilesAsList(@NotNull Map<String, Status> items) {
         tree.getNodeStorage().clear();
+        allPaths.clear();
         for (String file : items.keySet()) {
             tree.getNodeStorage().add(new ChangedFileNode(file, items.get(file), nodesResources, delegate, false));
+            allPaths.add(Path.valueOf(file));
         }
+        delegate.onPanelrendered(allPaths);
     }
 
     @Override
@@ -136,12 +130,13 @@ public class TreeViewImpl extends Composite implements TreeView {
         List<Node> nodes = getGroupedNodes(items);
         if (nodes.size() == 1) {
             tree.getNodeStorage().add(nodes);
-            tree.setExpanded(nodes.get(0), true);
         } else {
             for (Node node : nodes) {
                 tree.getNodeStorage().add(node);
             }
         }
+        tree.expandAll();
+        delegate.onPanelrendered(allPaths);
     }
 
     @Override
@@ -183,8 +178,8 @@ public class TreeViewImpl extends Composite implements TreeView {
     }
 
     @Override
-    public List<Path> getPaths() {
-        return paths;
+    public Set<Path> getPaths() {
+        return allPaths;
     }
 
     private void createButtons() {
@@ -218,7 +213,7 @@ public class TreeViewImpl extends Composite implements TreeView {
         List<String> allFiles = new ArrayList<>(items.keySet());
         List<String> allFolders = new ArrayList<>();
         for (String file : allFiles) {
-            this.paths.add(Path.valueOf(file));
+            this.allPaths.add(Path.valueOf(file));
             String path = file.substring(0, file.lastIndexOf("/"));
             if (!allFolders.contains(path)) {
                 allFolders.add(path);
@@ -254,7 +249,7 @@ public class TreeViewImpl extends Composite implements TreeView {
 
             //Map child files to related folders of current nesting level or just create a common folder
             for (String path : allFolders) {
-                paths.add(Path.valueOf(path));
+                allPaths.add(Path.valueOf(path));
                 if (!(Path.valueOf(path).segmentCount() == i - 1)) {
                     continue;
                 }

@@ -10,38 +10,31 @@
  *******************************************************************************/
 package org.eclipse.che.ide.ext.git.client.commit;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 
 import org.eclipse.che.api.core.ErrorCodes;
 import org.eclipse.che.api.git.shared.LogResponse;
+import org.eclipse.che.api.git.shared.Remote;
 import org.eclipse.che.api.git.shared.Revision;
 import org.eclipse.che.api.promises.client.Operation;
 import org.eclipse.che.api.promises.client.OperationException;
 import org.eclipse.che.api.promises.client.PromiseError;
-import org.eclipse.che.ide.api.action.ActionEvent;
 import org.eclipse.che.ide.api.app.AppContext;
 import org.eclipse.che.ide.api.data.tree.Node;
 import org.eclipse.che.ide.api.dialogs.DialogFactory;
 import org.eclipse.che.ide.api.git.GitServiceClient;
 import org.eclipse.che.ide.api.notification.NotificationManager;
-import org.eclipse.che.ide.api.resources.File;
 import org.eclipse.che.ide.api.resources.Project;
 import org.eclipse.che.ide.api.resources.Resource;
 import org.eclipse.che.ide.commons.exception.ServerException;
 import org.eclipse.che.ide.ext.git.client.DateTimeFormatter;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.compare.FileStatus.Status;
-import org.eclipse.che.ide.ext.git.client.compare.changedList.ChangedListPresenter;
 import org.eclipse.che.ide.ext.git.client.outputconsole.GitOutputConsole;
 import org.eclipse.che.ide.ext.git.client.outputconsole.GitOutputConsoleFactory;
-import org.eclipse.che.ide.ext.git.client.tree.ChangedFileNode;
-import org.eclipse.che.ide.ext.git.client.tree.ChangedFolderNode;
 import org.eclipse.che.ide.ext.git.client.tree.TreeCallBack;
 import org.eclipse.che.ide.ext.git.client.tree.TreePresenter;
-import org.eclipse.che.ide.ext.git.client.tree.TreeView;
 import org.eclipse.che.ide.processes.panel.ProcessesPanelPresenter;
 import org.eclipse.che.ide.resource.Path;
 
@@ -54,7 +47,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Collections.singletonList;
 import static org.eclipse.che.api.git.shared.DiffType.NAME_STATUS;
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.FLOAT_MODE;
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.NOT_EMERGE_MODE;
@@ -86,10 +78,13 @@ public class CommitPresenter implements CommitView.ActionDelegate {
 
     private Project      project;
     private Set<String>  allFiles;
-    private List<String> selectedFiles;
+    private List<String> checkedFiles;
+    private TreeCallBack treeCallBack;
+    private List<Remote> remotes;
+    private String       selectedRemote;
+    private boolean      pushAfterCommit;
 
     @Inject
-
     public CommitPresenter(final CommitView view,
                            GitServiceClient service,
                            TreePresenter treePresenter,
@@ -112,7 +107,7 @@ public class CommitPresenter implements CommitView.ActionDelegate {
         this.constant = constant;
         this.notificationManager = notificationManager;
 
-        this.selectedFiles = new ArrayList<>();
+        this.checkedFiles = new ArrayList<>();
         this.view.setTreeView(treePresenter.getView());
     }
 
@@ -128,20 +123,15 @@ public class CommitPresenter implements CommitView.ActionDelegate {
     public void actionPerformed() {
 
         final Project project = appContext.getRootProject();
-        final Resource resource = appContext.getResource();
 
         checkState(project != null, "Null project occurred");
-        checkState(project.getLocation().isPrefixOf(resource.getLocation()), "Given selected item is not descendant of given project");
-
-        final String selectedItemPath = resource.getLocation()
-                                                .removeFirstSegments(project.getLocation().segmentCount())
-                                                .removeTrailingSeparator()
-                                                .toString();
+        checkState(project.getLocation().isPrefixOf(appContext.getResource().getLocation()),
+                   "Given selected item is not descendant of given project");
 
 
         service.diff(appContext.getDevMachine(),
                      project.getLocation(),
-                     selectedItemPath.isEmpty() ? null : singletonList(selectedItemPath),
+                     null,
                      NAME_STATUS, false, 0, "HEAD", false)
                .then(new Operation<String>() {
                    @Override
@@ -155,10 +145,29 @@ public class CommitPresenter implements CommitView.ActionDelegate {
                            for (String item : changedFiles) {
                                items.put(item.substring(2, item.length()), defineStatus(item.substring(0, 1)));
                            }
-                           CommitPresenter.this.selectedFiles.clear();
-                           CommitPresenter.this.selectedFiles.addAll(items.keySet());
+                           CommitPresenter.this.checkedFiles.clear();
+                           CommitPresenter.this.checkedFiles.addAll(items.keySet());
                            CommitPresenter.this.allFiles = items.keySet();
-                           treePresenter.show(items, null);
+
+                           treeCallBack = new TreeCallBack() {
+                               @Override
+                               public void onNodeSelected(Node node) {
+                                   //ignore
+                               }
+
+                               @Override
+                               public void onTreeRendered(Set<Path> paths) {
+                                   view.setAllPaths(paths);
+
+                                   Set<Path> unselectedPaths = new HashSet<>();
+                                   for (Resource resource : appContext.getResources()) {
+                                       unselectedPaths.add(resource.getLocation().removeFirstSegments(1));
+                                   }
+                                   view.setUnselected(unselectedPaths);
+                               }
+                           };
+
+                           treePresenter.show(items, treeCallBack);
                        }
                    }
                })
@@ -166,6 +175,21 @@ public class CommitPresenter implements CommitView.ActionDelegate {
                    @Override
                    public void apply(PromiseError arg) throws OperationException {
                        notificationManager.notify(constant.diffFailed(), FAIL, NOT_EMERGE_MODE);
+                   }
+               });
+
+        service.remoteList(appContext.getDevMachine(), project.getLocation(), null, true)
+               .then(new Operation<List<Remote>>() {
+                   @Override
+                   public void apply(List<Remote> remotes) throws OperationException {
+                       CommitPresenter.this.remotes = remotes;
+                       view.addToDropdown(remotes);
+                   }
+               })
+               .catchError(new Operation<PromiseError>() {
+                   @Override
+                   public void apply(PromiseError error) throws OperationException {
+                       handleError(error.getCause());
                    }
                });
     }
@@ -201,10 +225,10 @@ public class CommitPresenter implements CommitView.ActionDelegate {
     }
 
     private Path[] toRelativePaths() {
-        final Path[] paths = new Path[selectedFiles.size()];
+        final Path[] paths = new Path[checkedFiles.size()];
 
-        for (int i = 0; i < selectedFiles.size(); i++) {
-            paths[i] = Path.valueOf(selectedFiles.get(i));
+        for (int i = 0; i < checkedFiles.size(); i++) {
+            paths[i] = Path.valueOf(checkedFiles.get(i));
         }
 
         return paths;
@@ -223,6 +247,8 @@ public class CommitPresenter implements CommitView.ActionDelegate {
         consolesPanelPresenter.addCommandOutput(appContext.getDevMachine().getId(), console);
         notificationManager.notify(message);
         view.setMessage("");
+
+
     }
 
     private void handleError(@NotNull Throwable exception) {
@@ -248,7 +274,17 @@ public class CommitPresenter implements CommitView.ActionDelegate {
     @Override
     public void onValueChanged() {
         boolean amend = view.isAmend();
-        view.setEnableCommitButton(!view.getMessage().isEmpty() && (!selectedFiles.isEmpty() || amend));
+        view.setEnableCommitButton(!view.getMessage().isEmpty() && (!checkedFiles.isEmpty() || amend));
+    }
+
+    @Override
+    public void onDropdownSelected(String remote) {
+        this.selectedRemote = remote;
+    }
+
+    @Override
+    public void onPushToRemoteCheBoxSelected(boolean value) {
+        pushAfterCommit = value;
     }
 
     @Override
@@ -287,14 +323,14 @@ public class CommitPresenter implements CommitView.ActionDelegate {
     @Override
     public void onFileNodeCheckBoxValueChanged(Path path, boolean newCheckBoxValue) {
         if (newCheckBoxValue) {
-            selectedFiles.add(path.toString());
+            checkedFiles.add(path.toString());
         } else {
-            selectedFiles.remove(path.toString());
+            checkedFiles.remove(path.toString());
         }
     }
 
     @Override
-    public Set<String> getFilesToCommit() {
+    public Set<String> getChangedFiles() {
         return allFiles;
     }
 }

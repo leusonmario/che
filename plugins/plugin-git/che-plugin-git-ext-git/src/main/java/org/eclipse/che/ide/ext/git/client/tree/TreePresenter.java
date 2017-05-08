@@ -27,6 +27,7 @@ import org.eclipse.che.ide.ext.git.client.compare.FileStatus.Status;
 import org.eclipse.che.ide.resource.Path;
 
 import javax.validation.constraints.NotNull;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -128,6 +129,11 @@ public class TreePresenter implements TreeView.ActionDelegate {
         if (callBack != null) {
             callBack.onNodeSelected(node);
         }
+    }
+
+    @Override
+    public void onPanelrendered(Set<Path> paths) {
+        callBack.onTreeRendered(paths);
     }
 
     private void viewChangedFiles() {

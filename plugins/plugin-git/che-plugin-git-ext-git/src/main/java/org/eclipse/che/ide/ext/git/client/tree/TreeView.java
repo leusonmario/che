@@ -20,6 +20,7 @@ import org.eclipse.che.ide.ui.smartTree.presentation.PresentationRenderer;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The view of {@link TreePresenter}.
@@ -48,6 +49,8 @@ public interface TreeView extends View<TreeView.ActionDelegate> {
          *         selected node
          */
         void onNodeSelected(Node node);
+
+        void onPanelrendered(Set<Path> nodes);
 
         /** Performs any actions appropriate in response to the user double clicked on the file node. */
         void onFileNodeDoubleClicked(String file, Status status);
@@ -97,5 +100,5 @@ public interface TreeView extends View<TreeView.ActionDelegate> {
 
     void refreshNodes();
 
-    List<Path> getPaths();
+    Set<Path> getPaths();
 }
